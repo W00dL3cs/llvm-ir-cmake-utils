@@ -111,9 +111,14 @@ function(llvmir_attach_bc_target)
   # compile lang flags
   llvmir_extract_lang_flags(IN_LANG_FLAGS ${LINKER_LANGUAGE})
 
+  file(TO_NATIVE_PATH "/" PATH_SEPARATOR)
+
   ## main operations
   foreach(IN_FILE ${IN_FILES})
-    get_filename_component(OUTFILE ${IN_FILE} NAME_WE)
+    file(RELATIVE_PATH RELATIVE_FILE ${CMAKE_SOURCE_DIR} ${IN_FILE})
+    string(REPLACE ${PATH_SEPARATOR} "_" RELATIVE_FILE ${RELATIVE_FILE})
+
+    get_filename_component(OUTFILE ${RELATIVE_FILE} NAME_WE)
     get_filename_component(INFILE ${IN_FILE} ABSOLUTE)
     set(OUT_LLVMIR_FILE "${OUTFILE}.${LLVMIR_BINARY_FMT_SUFFIX}")
     set(FULL_OUT_LLVMIR_FILE "${WORK_DIR}/${OUT_LLVMIR_FILE}")
@@ -974,4 +979,3 @@ function(llvmir_attach_library)
 
   ## postamble
 endfunction()
-
