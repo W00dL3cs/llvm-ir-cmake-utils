@@ -240,6 +240,29 @@ function(llvmir_extract_compile_option_properties out_compile_options trgt)
 endfunction()
 
 
+function(llvmir_extract_dependencies out_dependencies trgt)
+  set(dependencies "")
+  set(props INTERFACE_LINK_LIBRARIES LINK_LIBRARIES LINK_INTERFACE_LIBRARIES LINK_INTERFACE_LIBRARIES_${CMAKE_BUILD_TYPE})
+
+  foreach(prop ${props})
+    get_property(property TARGET ${trgt} PROPERTY ${prop})
+
+    foreach(library ${property})
+      if(TARGET ${library})
+        list(APPEND dependencies ${library})
+        llvmir_extract_dependencies(nested_dependencies ${library})
+        list(APPEND dependencies ${nested_dependencies})
+      endif()
+    endforeach()
+  endforeach()
+
+  list(REMOVE_DUPLICATES dependencies)
+
+  debug("@llvmir_extract_dependencies ${trgt}: ${dependencies}")
+
+  set(${out_dependencies} ${dependencies} PARENT_SCOPE)
+endfunction()
+
 function(llvmir_extract_include_dirs_properties out_include_dirs trgt)
   set(dirs "")
   set(prop_name "INCLUDE_DIRECTORIES")
@@ -343,5 +366,4 @@ function(llvmir_extract_compile_flags out_compile_flags from)
 
   set(${out_compile_flags} ${compile_flags} PARENT_SCOPE)
 endfunction()
-
 

@@ -92,11 +92,23 @@ function(llvmir_attach_bc_target)
   set(WORK_DIR "${CMAKE_CURRENT_BINARY_DIR}/${LLVMIR_DIR}/${TRGT}")
   file(MAKE_DIRECTORY ${WORK_DIR})
 
+  set(IN_DEFS "")
+  set(IN_INCLUDES "")
+
+  llvmir_extract_dependencies(REQUIRED_TARGETS ${DEPENDS_TRGT})
+  list(INSERT REQUIRED_TARGETS 0 ${DEPENDS_TRGT})
+
   # compile definitions
-  llvmir_extract_compile_defs_properties(IN_DEFS ${DEPENDS_TRGT})
+  foreach(target ${REQUIRED_TARGETS})
+    llvmir_extract_compile_defs_properties(prop ${target})
+    list(APPEND IN_DEFS ${prop})
+  endforeach()
 
   # includes
-  llvmir_extract_include_dirs_properties(IN_INCLUDES ${DEPENDS_TRGT})
+  foreach(target ${REQUIRED_TARGETS})
+    llvmir_extract_include_dirs_properties(prop ${target})
+    list(APPEND IN_INCLUDES ${prop})
+  endforeach()
 
   # language standards flags
   llvmir_extract_standard_flags(IN_STANDARD_FLAGS
@@ -110,6 +122,9 @@ function(llvmir_attach_bc_target)
 
   # compile lang flags
   llvmir_extract_lang_flags(IN_LANG_FLAGS ${LINKER_LANGUAGE})
+
+  list(REMOVE_DUPLICATES IN_DEFS)
+  list(REMOVE_DUPLICATES IN_INCLUDES)
 
   file(TO_NATIVE_PATH "/" PATH_SEPARATOR)
 
