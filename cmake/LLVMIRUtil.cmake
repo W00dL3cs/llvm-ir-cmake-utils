@@ -126,6 +126,21 @@ function(llvmir_attach_bc_target)
   list(REMOVE_DUPLICATES IN_DEFS)
   list(REMOVE_DUPLICATES IN_INCLUDES)
 
+  set(EXTRA_ARGS "")
+  if(${LLVMIR_COMPILER_ID} STREQUAL "AppleClang")
+    if(CMAKE_OSX_SYSROOT)
+      list(APPEND EXTRA_ARGS ${CMAKE_${LINKER_LANGUAGE}_SYSROOT_FLAG} ${CMAKE_OSX_SYSROOT})
+    endif()
+
+    if(CMAKE_OSX_ARCHITECTURES)
+      list(APPEND EXTRA_ARGS "-arch" ${CMAKE_OSX_ARCHITECTURES})
+    endif()
+
+    if(CMAKE_OSX_DEPLOYMENT_TARGET)
+      list(APPEND EXTRA_ARGS "-m${SDK_NAME}-version-min=${CMAKE_OSX_DEPLOYMENT_TARGET}")
+    endif()
+  endif()
+
   file(TO_NATIVE_PATH "/" PATH_SEPARATOR)
 
   ## main operations
@@ -154,7 +169,7 @@ function(llvmir_attach_bc_target)
 
     set(CMD_ARGS "-emit-llvm" ${IN_STANDARD_FLAGS} ${IN_LANG_FLAGS}
       ${IN_COMPILE_OPTIONS} ${CURRENT_COMPILE_FLAGS} ${CURRENT_DEFS}
-      ${IN_INCLUDES})
+      ${IN_INCLUDES} ${EXTRA_ARGS})
 
     add_custom_command(OUTPUT ${FULL_OUT_LLVMIR_FILE}
       COMMAND ${LLVMIR_COMPILER}
@@ -260,6 +275,15 @@ function(llvmir_attach_opt_pass_target)
     must be set.")
   endif()
 
+  find_program(OPT_BIN opt)
+  if(${OPT_BIN} STREQUAL "OPT_BIN-NOTFOUND")
+    if(NOT LLVM_DIR)
+      message(FATAL_ERROR "llvmir_attach_opt_pass_target: could not find opt")
+    endif()
+
+    set(OPT_BIN ${LLVM_DIR}/bin/opt)
+  endif()
+
   ## main operations
   set(WORK_DIR "${CMAKE_CURRENT_BINARY_DIR}/${LLVMIR_DIR}/${TRGT}")
   file(MAKE_DIRECTORY ${WORK_DIR})
@@ -271,7 +295,7 @@ function(llvmir_attach_opt_pass_target)
     set(FULL_OUT_LLVMIR_FILE "${WORK_DIR}/${OUT_LLVMIR_FILE}")
 
     add_custom_command(OUTPUT ${FULL_OUT_LLVMIR_FILE}
-      COMMAND ${LLVMIR_OPT}
+      COMMAND ${OPT_BIN}
       ARGS
       ${LLVMIR_ATTACH_UNPARSED_ARGUMENTS} ${INFILE} -o ${FULL_OUT_LLVMIR_FILE}
       DEPENDS ${INFILE}
@@ -630,8 +654,17 @@ function(llvmir_attach_link_target)
   set_property(TARGET ${TRGT} PROPERTY EXCLUDE_FROM_ALL On)
   set_property(TARGET ${TRGT} PROPERTY LLVMIR_SHORT_NAME ${SHORT_NAME})
 
+  find_program(LLVM_LINK_BIN llvm-link)
+  if(${LLVM_LINK_BIN} STREQUAL "LLVM_LINK_BIN-NOTFOUND")
+    if(NOT LLVM_DIR)
+      message(FATAL_ERROR "llvmir_attach_link_target: could not find llvm-link")
+    endif()
+
+    set(LLVM_LINK_BIN ${LLVM_DIR}/bin/llvm-link)
+  endif()
+
   add_custom_command(OUTPUT ${FULL_OUT_LLVMIR_FILE}
-    COMMAND llvm-link
+    COMMAND ${LLVM_LINK_BIN}
     ARGS
     ${LLVMIR_ATTACH_UNPARSED_ARGUMENTS}
     -o ${FULL_OUT_LLVMIR_FILE} ${IN_FULL_LLVMIR_FILES}
