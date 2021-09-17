@@ -915,19 +915,25 @@ endfunction()
 
 function(llvmir_attach_library)
   set(options)
-  set(oneValueArgs TARGET DEPENDS)
-  set(multiValueArgs)
+  set(oneValueArgs TARGET)
+  set(multiValueArgs DEPENDS)
+
+  math(EXPR PARSABLE_ARGS_N "${ARGC} - 1")
+  list(SUBLIST ARGN 0 ${PARSABLE_ARGS_N} PARSABLE_ARGS)
+
   cmake_parse_arguments(LLVMIR_ATTACH
-    "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
+    "${options}" "${oneValueArgs}" "${multiValueArgs}" ${PARSABLE_ARGS})
 
   set(TRGT ${LLVMIR_ATTACH_TARGET})
-  set(DEPENDS_TRGT ${LLVMIR_ATTACH_DEPENDS})
+  list(GET LLVMIR_ATTACH_DEPENDS 0 DEPENDS_TRGT)
+  list(GET ARGN -1 LLVMIR_ATTACH_TYPE)
 
   # fallback to backwards compatible mode for argument parsing
   if(NOT TRGT AND NOT DEPENDS_TRGT)
     list(GET LLVMIR_ATTACH_UNPARSED_ARGUMENTS 0 TRGT)
     list(GET LLVMIR_ATTACH_UNPARSED_ARGUMENTS 1 DEPENDS_TRGT)
     list(REMOVE_AT LLVMIR_ATTACH_UNPARSED_ARGUMENTS 0 1)
+    set(LLVMIR_ATTACH_TYPE ${LLVMIR_ATTACH_UNPARSED_ARGUMENTS})
   endif()
 
   if(NOT TRGT)
@@ -952,16 +958,6 @@ function(llvmir_attach_library)
   get_property(LINK_FLAGS_${CMAKE_BUILD_TYPE}
     TARGET ${DEPENDS_TRGT}
     PROPERTY LINK_FLAGS_${CMAKE_BUILD_TYPE})
-  get_property(INTERFACE_LINK_LIBRARIES
-    TARGET ${DEPENDS_TRGT}
-    PROPERTY INTERFACE_LINK_LIBRARIES)
-  get_property(LINK_LIBRARIES TARGET ${DEPENDS_TRGT} PROPERTY LINK_LIBRARIES)
-  get_property(LINK_INTERFACE_LIBRARIES
-    TARGET ${DEPENDS_TRGT}
-    PROPERTY LINK_INTERFACE_LIBRARIES)
-  get_property(LINK_INTERFACE_LIBRARIES_${CMAKE_BUILD_TYPE}
-    TARGET ${DEPENDS_TRGT}
-    PROPERTY LINK_INTERFACE_LIBRARIES_${CMAKE_BUILD_TYPE})
   get_property(SHORT_NAME TARGET ${DEPENDS_TRGT} PROPERTY LLVMIR_SHORT_NAME)
 
   if(NOT "${IN_LLVMIR_TYPE}" STREQUAL "${LLVMIR_BINARY_TYPE}" AND
@@ -978,38 +974,56 @@ function(llvmir_attach_library)
     list(APPEND IN_FULL_LLVMIR_FILES "${IN_LLVMIR_DIR}/${IN_LLVMIR_FILE}")
   endforeach()
 
-  # currenly unparsed args holds the library mode, e.g. SHARED, STATIC, etc
   add_library(${TRGT}
-    ${LLVMIR_ATTACH_UNPARSED_ARGUMENTS} ${IN_FULL_LLVMIR_FILES})
+    ${LLVMIR_ATTACH_TYPE} ${IN_FULL_LLVMIR_FILES})
 
   if(SHORT_NAME)
     set_property(TARGET ${TRGT} PROPERTY OUTPUT_NAME ${SHORT_NAME})
   endif()
 
-  # simply setting the property does not seem to work
-  #set_property(TARGET ${TRGT}
-  #PROPERTY INTERFACE_LINK_LIBRARIES ${INTERFACE_LINK_LIBRARIES})
-  #set_property(TARGET ${TRGT}
-  #PROPERTY LINK_INTERFACE_LIBRARIES ${LINK_INTERFACE_LIBRARIES})
-  #set_property(TARGET ${TRGT}
-  #PROPERTY
-  #LINK_INTERFACE_LIBRARIES_${CMAKE_BUILD_TYPE}
-  #${LINK_INTERFACE_LIBRARIES_${CMAKE_BUILD_TYPE}})
+  foreach(target ${LLVMIR_ATTACH_DEPENDS})
+    get_property(INTERFACE_LINK_LIBRARIES
+      TARGET ${target}
+      PROPERTY INTERFACE_LINK_LIBRARIES)
+    get_property(LINK_LIBRARIES TARGET ${target} PROPERTY LINK_LIBRARIES)
+    get_property(LINK_INTERFACE_LIBRARIES
+      TARGET ${target}
+      PROPERTY LINK_INTERFACE_LIBRARIES)
+    get_property(LINK_INTERFACE_LIBRARIES_${CMAKE_BUILD_TYPE}
+      TARGET ${target}
+      PROPERTY LINK_INTERFACE_LIBRARIES_${CMAKE_BUILD_TYPE})
 
-  # FIXME: cmake bags PUBLIC link dependencies under both interface and private
-  # target properties, so for an exact propagation it is required to search for
-  # elements that are only in the INTERFACE properties and set them as such
-  # correctly with the target_link_libraries command
-  if(INTERFACE_LINK_LIBRARIES)
-    target_link_libraries(${TRGT} PUBLIC ${INTERFACE_LINK_LIBRARIES})
-  endif()
-  if(LINK_INTERFACE_LIBRARIES)
-    target_link_libraries(${TRGT} PUBLIC ${LINK_INTERFACE_LIBRARIES})
-  endif()
-  if(LINK_INTERFACE_LIBRARIES_${CMAKE_BUILD_TYPE})
-    target_link_libraries(${TRGT}
-      PUBLIC ${LINK_INTERFACE_LIBRARIES_${CMAKE_BUILD_TYPE}})
-  endif()
+    # simply setting the property does not seem to work
+    #set_property(TARGET ${TRGT}
+    #PROPERTY INTERFACE_LINK_LIBRARIES ${INTERFACE_LINK_LIBRARIES})
+    #set_property(TARGET ${TRGT}
+    #PROPERTY LINK_INTERFACE_LIBRARIES ${LINK_INTERFACE_LIBRARIES})
+    #set_property(TARGET ${TRGT}
+    #PROPERTY
+    #LINK_INTERFACE_LIBRARIES_${CMAKE_BUILD_TYPE}
+    #${LINK_INTERFACE_LIBRARIES_${CMAKE_BUILD_TYPE}})
+
+    # FIXME: cmake bags PUBLIC link dependencies under both interface and private
+    # target properties, so for an exact propagation it is required to search for
+    # elements that are only in the INTERFACE properties and set them as such
+    # correctly with the target_link_libraries command
+    if(LINK_LIBRARIES)
+      target_link_libraries(${TRGT} PUBLIC ${LINK_LIBRARIES})
+    endif()
+
+    if(INTERFACE_LINK_LIBRARIES)
+      target_link_libraries(${TRGT} PUBLIC ${INTERFACE_LINK_LIBRARIES})
+    endif()
+
+    if(LINK_INTERFACE_LIBRARIES)
+      target_link_libraries(${TRGT} PUBLIC ${LINK_INTERFACE_LIBRARIES})
+    endif()
+
+    if(LINK_INTERFACE_LIBRARIES_${CMAKE_BUILD_TYPE})
+      target_link_libraries(${TRGT}
+        PUBLIC ${LINK_INTERFACE_LIBRARIES_${CMAKE_BUILD_TYPE}})
+    endif()
+  endforeach()
 
   set_property(TARGET ${TRGT} PROPERTY LIBRARY_OUTPUT_DIRECTORY ${OUT_DIR})
   set_property(TARGET ${TRGT} PROPERTY LINKER_LANGUAGE ${LINKER_LANGUAGE})
