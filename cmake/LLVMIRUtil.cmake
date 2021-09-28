@@ -94,6 +94,7 @@ function(llvmir_attach_bc_target)
 
   set(IN_DEFS "")
   set(IN_INCLUDES "")
+  set(IN_COMPILE_OPTIONS "")
 
   llvmir_extract_dependencies(REQUIRED_TARGETS ${DEPENDS_TRGT})
   list(INSERT REQUIRED_TARGETS 0 ${DEPENDS_TRGT})
@@ -115,7 +116,10 @@ function(llvmir_attach_bc_target)
     ${DEPENDS_TRGT} ${LINKER_LANGUAGE})
 
   # compile options
-  llvmir_extract_compile_option_properties(IN_COMPILE_OPTIONS ${DEPENDS_TRGT})
+  foreach(target ${REQUIRED_TARGETS})
+    llvmir_extract_compile_option_properties(prop ${target})
+    list(APPEND IN_COMPILE_OPTIONS ${prop})
+  endforeach()
 
   # compile flags
   llvmir_extract_compile_flags(IN_COMPILE_FLAGS ${DEPENDS_TRGT})
@@ -125,6 +129,7 @@ function(llvmir_attach_bc_target)
 
   list(REMOVE_DUPLICATES IN_DEFS)
   list(REMOVE_DUPLICATES IN_INCLUDES)
+  list(REMOVE_DUPLICATES IN_COMPILE_OPTIONS)
 
   set(EXTRA_ARGS "")
   if(${LLVMIR_COMPILER_ID} STREQUAL "AppleClang")
