@@ -82,6 +82,7 @@ function(llvmir_attach_bc_target)
     TARGET ${DEPENDS_TRGT}
     PROPERTY LINK_INTERFACE_LIBRARIES_${CMAKE_BUILD_TYPE})
   get_property(SHORT_NAME TARGET ${DEPENDS_TRGT} PROPERTY LLVMIR_SHORT_NAME)
+  get_property(POSITION_INDEPENDENT TARGET ${DEPENDS_TRGT} PROPERTY POSITION_INDEPENDENT_CODE)
 
   debug(
     "@llvmir_attach_bc_target ${DEPENDS_TRGT} linker lang: ${LINKER_LANGUAGE}")
@@ -144,6 +145,22 @@ function(llvmir_attach_bc_target)
     if(CMAKE_OSX_DEPLOYMENT_TARGET)
       list(APPEND EXTRA_ARGS "-m${SDK_NAME}-version-min=${CMAKE_OSX_DEPLOYMENT_TARGET}")
     endif()
+  endif()
+
+  if(CMAKE_SYSROOT)
+    list(APPEND EXTRA_ARGS "--sysroot=${CMAKE_SYSROOT}")
+  endif()
+
+  if(ANDROID_TOOLCHAIN_ROOT)
+    list(APPEND EXTRA_ARGS "--gcc-toolchain=${ANDROID_TOOLCHAIN_ROOT}")
+  endif()
+
+  if(CMAKE_${LINKER_LANGUAGE}_COMPILER_TARGET)
+    list(APPEND EXTRA_ARGS "--target=${CMAKE_${LINKER_LANGUAGE}_COMPILER_TARGET}")
+  endif()
+
+  if(POSITION_INDEPENDENT)
+    list(APPEND EXTRA_ARGS "-fPIC")
   endif()
 
   file(TO_NATIVE_PATH "/" PATH_SEPARATOR)
